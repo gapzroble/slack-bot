@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -44,19 +45,32 @@ func postMessageToSlack(message, channel, sender, user, ts string) error {
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
-
-	body, e := ioutil.ReadAll(resp.Body)
-	if e == nil {
-		defer resp.Body.Close()
-		logger.Error(&logger.LogEntry{
-			Message: "Got response from slack",
-			Keys: map[string]interface{}{
-				"Response": string(body),
-			},
-		})
+	if err != nil {
+		return err
 	}
 
-	return err
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+	logger.Info(&logger.LogEntry{
+		Message: "Got response from slack",
+		Keys: map[string]interface{}{
+			"Response": string(body),
+		},
+	})
+
+	res, err := newResponse(body)
+	if err != nil {
+		return err
+	}
+	if res.Error == "user_not_in_channel" {
+		return errors.New("user_not_in_channel")
+	}
+
+	return nil
 }
 
 func getUserChannel(user string) (string, error) {

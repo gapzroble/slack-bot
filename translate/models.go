@@ -47,22 +47,23 @@ func (r request) String() string {
 	return string(s)
 }
 
-type with struct {
-	Token       string `form:"token"`
-	TeamID      string `form:"team_id"`
-	ChannelID   string `form:"channel_id"`
-	ChannelName string `form:"channel_name"`
-	UserID      string `form:"user_id"`
-	UserName    string `form:"user_name"`
-	Command     string `form:"command"`
-	Text        string `form:"text"`
-	ResponseURL string `form:"response_url"`
-	TriggerID   string `form:"trigger_id"`
-}
-
 type channel struct {
 	ID string `json:"id"`
 }
 type im struct {
 	Channel channel `json:"channel"`
+}
+
+type response struct {
+	OK    bool   `json:"ok"`
+	Error string `json:"error"`
+}
+
+func newResponse(data []byte) (*response, error) {
+	var res response
+	if err := json.Unmarshal(data, &res); err != nil {
+		return nil, err
+	}
+
+	return &res, nil
 }

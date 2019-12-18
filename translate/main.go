@@ -119,7 +119,7 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 	var wg sync.WaitGroup
 
 	for _, user := range users() {
-		if user == req.Event.User {
+		if user == req.Event.User || userNotInChannel(user, req.Event.Channel) {
 			continue
 		}
 		wg.Add(1)
@@ -131,10 +131,13 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 					Message:      "Failed to post slack message",
 					ErrorMessage: err.Error(),
 					Keys: map[string]interface{}{
-						"Message": body,
 						"User":    user,
+						"Channel": req.Event.Channel,
 					},
 				})
+				if err.Error() == "user_not_in_channel" {
+					notInChannel[user+req.Event.Channel] = true
+				}
 			}
 		}(user)
 	}
