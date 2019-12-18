@@ -3,11 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
-	"net/http"
-	"net/url"
 	"os"
-	"strings"
 	"sync"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -16,8 +12,6 @@ import (
 
 	"github.com/tiqqe/go-logger"
 )
-
-var translator = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=sv&tl=en&dt=t&q="
 
 func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *events.APIGatewayProxyResponse, e error) {
 	lctx, _ := lambdacontext.FromContext(ctx)
@@ -36,6 +30,14 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 	res = &events.APIGatewayProxyResponse{StatusCode: 200}
 
 	if err := json.Unmarshal([]byte(event.Body), &req); err != nil {
+
+		// check here to re-use global var
+		if result, ok := command(event.Body); ok {
+			logger.InfoString("Done command")
+			res.Body = result
+			return
+		}
+
 		logger.Error(&logger.LogEntry{
 			Message:      "Failed to unmarshall request body",
 			ErrorMessage: err.Error(),
@@ -69,44 +71,12 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 
 	logger.InfoString("Translating message")
 
-	url := translator + url.QueryEscape(req.Event.Text)
-	response, err := http.Get(url)
+	body, err := translate(req.Event.Text)
 	if err != nil {
-		logger.Error(&logger.LogEntry{
-			Message:      "Failed to translate message from api",
-			ErrorMessage: err.Error(),
-			Keys: map[string]interface{}{
-				"Url": url,
-			},
-		})
 		res.Body = err.Error()
 		return
 	}
 
-	if response.StatusCode > 299 {
-		logger.Error(&logger.LogEntry{
-			Message: "Expecting response status 2XX",
-			Keys: map[string]interface{}{
-				"Response": response,
-			},
-		})
-		res.Body = "Translate response not OK"
-		return
-	}
-
-	dat, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		logger.Error(&logger.LogEntry{
-			Message:      "Fail to read response body",
-			ErrorMessage: err.Error(),
-		})
-		return
-	}
-
-	body := parse(string(dat))
-	if body == "" {
-		body = string(dat)
-	}
 	logger.InfoStringf("Got response: %s", body)
 
 	if body == req.Event.Text {
@@ -118,7 +88,7 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 
 	var wg sync.WaitGroup
 
-	for _, user := range users() {
+	for user := range slackUsers {
 		if user == req.Event.User || userNotInChannel(user, req.Event.Channel) {
 			continue
 		}
@@ -136,7 +106,7 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 					},
 				})
 				if err.Error() == "user_not_in_channel" {
-					notInChannel[user+req.Event.Channel] = true
+					notInChannel[user+":"+req.Event.Channel] = true
 				}
 			}
 		}(user)
@@ -146,10 +116,6 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 	logger.InfoString("Done")
 
 	return res, nil
-}
-
-func users() []string {
-	return strings.Split(slackUser, ",")
 }
 
 func main() {

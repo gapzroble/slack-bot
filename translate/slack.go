@@ -12,11 +12,9 @@ import (
 )
 
 var slackToken string
-var slackUser string
 
 func init() {
 	slackToken = os.Getenv("SLACK_API_TOKEN")
-	slackUser = os.Getenv("SLACK_USER")
 }
 
 func postMessageToSlack(message, channel, sender, user, ts string) error {
