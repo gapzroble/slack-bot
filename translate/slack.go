@@ -24,7 +24,7 @@ func postMessageToSlack(message, channel, sender, user, ts string) error {
 		// "as_user":  true,
 		// "username": sender,
 		"user": user,
-		// "thread_ts": ts,
+		// "thread_ts": ts, // TODO: identify if reply
 	}
 	logger.Info(&logger.LogEntry{
 		Message: "Sending message",

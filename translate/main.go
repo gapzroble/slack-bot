@@ -21,8 +21,8 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 
 	logger.Info(&logger.LogEntry{
 		Message: "Got event",
-		Keys: map[string]interface{}{
-			"Event": event,
+		Keys:    map[string]interface{}{
+			// "Event": event,
 		},
 	})
 
@@ -41,18 +41,19 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 		logger.Error(&logger.LogEntry{
 			Message:      "Failed to unmarshall request body",
 			ErrorMessage: err.Error(),
-			Keys: map[string]interface{}{
-				"Event": event,
+			Keys:         map[string]interface{}{
+				// "Event": event,
 			},
 		})
+
 		res.Body = err.Error()
 		return
 	}
 
 	logger.Info(&logger.LogEntry{
 		Message: "Got request",
-		Keys: map[string]interface{}{
-			"Request": req,
+		Keys:    map[string]interface{}{
+			// "Request": req,
 		},
 	})
 
@@ -69,6 +70,18 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 		return
 	}
 
+	users := make([]string, 0, len(slackUsers))
+	for user := range slackUsers {
+		if user != req.Event.User && !userNotInChannel(user, req.Event.Channel) {
+			users = append(users, user)
+		}
+	}
+	if len(users) == 0 {
+		res.Body = "No users to send to"
+		logger.InfoString(res.Body)
+		return
+	}
+
 	logger.InfoString("Translating message")
 
 	body, err := translate(req.Event.Text)
@@ -77,21 +90,27 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 		return
 	}
 
-	logger.InfoStringf("Got response: %s", body)
+	logger.Info(&logger.LogEntry{
+		Message: "Got translation",
+		Keys:    map[string]interface{}{
+			// "Body": body,
+		},
+	})
 
 	if body == req.Event.Text {
-		logger.InfoString("message is same as translation")
+		logger.InfoString("Message is same as translation")
 		return
 	}
 
-	logger.InfoStringf("Sending translation to slack: %s", body)
+	logger.Info(&logger.LogEntry{
+		Message: "Sending translated message to slack",
+		Keys:    map[string]interface{}{
+			// "Message": body,
+		},
+	})
 
 	var wg sync.WaitGroup
-
-	for user := range slackUsers {
-		if user == req.Event.User || userNotInChannel(user, req.Event.Channel) {
-			continue
-		}
+	for _, user := range users {
 		wg.Add(1)
 		go func(user string) {
 			defer wg.Done()
