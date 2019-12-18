@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -93,53 +94,59 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 		return
 	}
 
-	dat, _ := ioutil.ReadAll(response.Body)
-	body := string(dat)
-	logger.InfoStringf("Got response: %s", body)
-
-	body = strings.Split(body, `","`+req.Event.Text)[0]
-	parts := strings.Split(body, `["`)
-	if len(parts) <= 1 {
+	dat, err := ioutil.ReadAll(response.Body)
+	if err != nil {
 		logger.Error(&logger.LogEntry{
-			Message: "Error parsing response",
-			Keys: map[string]interface{}{
-				"Parts": parts,
-			},
+			Message:      "Fail to read response body",
+			ErrorMessage: err.Error(),
 		})
 		return
 	}
-	body = parts[1]
+
+	body := parse(string(dat))
+	if body == "" {
+		body = string(dat)
+	}
+	logger.InfoStringf("Got response: %s", body)
+
 	if body == req.Event.Text {
 		logger.InfoString("message is same as translation")
 		return
 	}
 
-	user := slackUser
-	if len(req.AuthedUsers) > 0 {
-		user = req.AuthedUsers[0]
-	}
-
-	if user == req.Event.User {
-		logger.InfoString("You are the sender")
-		return
-	}
-
 	logger.InfoStringf("Sending translation to slack: %s", body)
-	err = postMessageToSlack(body, req.Event.Channel, req.Event.User, user, req.Event.EventTS)
-	if err != nil {
-		logger.Error(&logger.LogEntry{
-			Message:      "Failed to post slack message",
-			ErrorMessage: err.Error(),
-			Keys: map[string]interface{}{
-				"Message": body,
-			},
-		})
-		res.Body = err.Error()
-		return res, nil
+
+	var wg sync.WaitGroup
+
+	for _, user := range users() {
+		if user == req.Event.User {
+			continue
+		}
+		wg.Add(1)
+		go func(user string) {
+			defer wg.Done()
+			err = postMessageToSlack(body, req.Event.Channel, req.Event.User, user, req.Event.EventTS)
+			if err != nil {
+				logger.Error(&logger.LogEntry{
+					Message:      "Failed to post slack message",
+					ErrorMessage: err.Error(),
+					Keys: map[string]interface{}{
+						"Message": body,
+						"User":    user,
+					},
+				})
+			}
+		}(user)
 	}
+	wg.Wait()
+
 	logger.InfoString("Done")
 
 	return res, nil
+}
+
+func users() []string {
+	return strings.Split(slackUser, ",")
 }
 
 func main() {
