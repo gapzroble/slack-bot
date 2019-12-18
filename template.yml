@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Slack Auto translate Swedish to English
+Parameters:
+  Stage:
+    Type: "String"
+  DeployBucket:
+    Type: "String"
+
+Globals:
+  Function:
+    Timeout: 120
+    Runtime: go1.x
+    Tracing: Active
+
+Resources:
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Stage
+      Cors:
+        AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
+        AllowMethods: "'DELETE,GET,HEAD,OPTIONS,PATCH,POST,PUT'"
+        AllowOrigin: "'*'"
+
+  TranslateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Join ["-", ["translate-bot", !Ref Stage]]
+      CodeUri: bin/translate.zip
+      Handler: translate
+      # Policies:
+      Environment:
+        Variables:
+          SLACK_USER: "UHS7SGL0Z"
+          SLACK_API_TOKEN: ""
+      Events:
+        SlackEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /slack
+            Method: POST
