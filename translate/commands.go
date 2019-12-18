@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 )
@@ -20,13 +21,15 @@ func command(body string) (string, bool) {
 	what := strings.ToLower(strings.Trim(text, " "))
 	switch what {
 	case "":
-		return "*" + status(user), true
-	case "yes":
+		return ":point_right: " + status(user), true
+	case "yes", "subscribe", "1", "true", "y":
 		slackUsers[user] = true
 		return status(user), true
-	case "no":
+	case "no", "unsubscribe", "0", "false", "n":
 		delete(slackUsers, user)
 		return status(user), true
+	case "nerdstats":
+		return fmt.Sprintf("```slackUsers: %+v\nnotInChannel: %+v```", slackUsers, notInChannel), true
 	}
 
 	message, err := translate(text)
@@ -39,7 +42,7 @@ func command(body string) (string, bool) {
 
 func status(user string) string {
 	if _, ok := slackUsers[user]; ok {
-		return "Subscribed"
+		return "Subscribed :heavy_check_mark:"
 	}
-	return "Unsubscribed"
+	return "~Unsubscribed~"
 }

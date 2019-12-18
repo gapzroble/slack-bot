@@ -26,12 +26,6 @@ func postMessageToSlack(message, channel, sender, user, ts string) error {
 		"user": user,
 		// "thread_ts": ts, // TODO: identify if reply
 	}
-	logger.Info(&logger.LogEntry{
-		Message: "Sending message",
-		Keys: map[string]interface{}{
-			"Message": msg,
-		},
-	})
 	r, err := json.Marshal(msg)
 	if err != nil {
 		return err
