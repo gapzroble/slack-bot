@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -23,8 +24,8 @@ func postMessageToSlack(message, channel, sender, user, ts string) error {
 		"channel": channel,
 		// "as_user":  true,
 		// "username": sender,
-		"user": user,
-		// "thread_ts": ts, // TODO: identify if reply
+		"user":      user,
+		"thread_ts": ts,
 	}
 	r, err := json.Marshal(msg)
 	if err != nil {
@@ -65,31 +66,23 @@ func postMessageToSlack(message, channel, sender, user, ts string) error {
 	return nil
 }
 
-func getUserChannel(user string) (string, error) {
-	msg := map[string]interface{}{
-		"token": slackToken,
-		"user":  user,
-	}
-	r, _ := json.Marshal(msg)
-	url := "https://slack.com/api/im.open"
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(r))
-	req.Header.Set("Content-type", "application/json; charset=utf-8")
-	req.Header.Set("Authorization", "Bearer "+slackToken)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-
+func getPermalink(ts, channel string) (*permalink, error) {
+	url := fmt.Sprintf("https://slack.com/api/chat.getPermalink?token=%s&channel=%s&message_ts=%s", slackToken, channel, ts)
+	resp, err := http.Get(url)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	var chat im
+	var perm permalink
 	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
-
-	if err := json.Unmarshal(body, &chat); err != nil {
-		return "", err
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
 	}
 
-	return chat.Channel.ID, nil
+	if err := json.Unmarshal(body, &perm); err != nil {
+		return nil, err
+	}
+
+	return &perm, nil
 }

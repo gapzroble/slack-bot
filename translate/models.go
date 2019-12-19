@@ -67,3 +67,9 @@ func newResponse(data []byte) (*response, error) {
 
 	return &res, nil
 }
+
+type permalink struct {
+	OK        bool   `json:"ok"`
+	Channel   string `json:"channel"`
+	Permalink string `json:"permalink"`
+}

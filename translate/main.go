@@ -52,8 +52,10 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 
 	logger.Info(&logger.LogEntry{
 		Message: "Got request",
-		Keys:    map[string]interface{}{
-			// "Request": req,
+		Keys: map[string]interface{}{
+			"ts":        req.Event.TS,
+			"event_ts":  req.Event.EventTS,
+			"delete_ts": req.Event.DeleteTS,
 		},
 	})
 
@@ -82,7 +84,10 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 		return
 	}
 
-	logger.InfoString("Translating message")
+	threadChan := make(chan string)
+	go getMainThread(req.Event.TS, req.Event.Channel, threadChan)
+
+	go logger.InfoString("Translating message")
 
 	body, err := translate(req.Event.Text)
 	if err != nil {
@@ -109,12 +114,14 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 		},
 	})
 
+	threadTs := <-threadChan
+
 	var wg sync.WaitGroup
 	for _, user := range users {
 		wg.Add(1)
 		go func(user string) {
 			defer wg.Done()
-			err = postMessageToSlack(body, req.Event.Channel, req.Event.User, user, req.Event.EventTS)
+			err = postMessageToSlack(body, req.Event.Channel, req.Event.User, user, threadTs)
 			if err != nil {
 				logger.Error(&logger.LogEntry{
 					Message:      "Failed to post slack message",
