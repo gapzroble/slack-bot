@@ -22,10 +22,10 @@ func postMessageToSlack(message, channel, sender, user, ts string) error {
 	msg := map[string]interface{}{
 		"text":    message,
 		"channel": channel,
-		// "as_user":  true,
-		// "username": sender,
-		"user":      user,
-		"thread_ts": ts,
+		"user":    user,
+	}
+	if ts != "" {
+		msg["thread_ts"] = ts
 	}
 	r, err := json.Marshal(msg)
 	if err != nil {

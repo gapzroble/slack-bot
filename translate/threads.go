@@ -3,7 +3,7 @@ package main
 import "net/url"
 
 func getMainThread(ts, channel string, tsChan chan<- string) {
-	threadTs := ts
+	threadTs := ""
 	defer func() {
 		tsChan <- threadTs
 	}()
@@ -23,8 +23,7 @@ func getMainThread(ts, channel string, tsChan chan<- string) {
 	}
 
 	tsparam := u.Query().Get("thread_ts")
-	if tsparam != "" {
+	if tsparam == "" || tsparam != ts {
 		threadTs = tsparam
-
 	}
 }
