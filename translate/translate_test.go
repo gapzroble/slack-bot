@@ -41,12 +41,12 @@ func TestTransform(t *testing.T) {
 
 // TestExtractReplace test
 func TestExtractReplace(t *testing.T) {
-	message := " Lol, <@Userxxx> is  :laughing: at <#CCR0E62H0|tech-discussions> :heart:.."
+	message := " Lol, <@Userxxx> is  :laughing: at <#CCR0E62H0|tech-discussions> :heart:.. järn: <https://www.cisco.com/c/en/us/support/docs/field-notices/704/fn70489.html> <https://support.hpe.com/hpsc/doc/public/display?docId=emr_na-a00092491en_us>"
 	expected := message
 
 	replacements := extract(&message)
-	if len(replacements) != 4 {
-		t.Error("Expecting 4 replacements")
+	if len(replacements) != 6 {
+		t.Errorf("Expecting 6 replacements, got %d", len(replacements))
 	}
 
 	replace(&message, replacements)

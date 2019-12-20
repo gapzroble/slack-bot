@@ -75,9 +75,11 @@ func extract(message *string) map[string]string {
 		return !enc
 	})
 	for _, encl := range enclosed {
-		hash := crc32(encl)
-		*message = strings.ReplaceAll(*message, encl, hash)
-		rep[hash] = encl
+		if strings.HasPrefix(encl, "<") && strings.HasSuffix(encl, ">") {
+			hash := crc32(encl)
+			*message = strings.ReplaceAll(*message, encl, hash)
+			rep[hash] = encl
+		}
 	}
 
 	emoji := false // :emoji:
@@ -90,9 +92,11 @@ func extract(message *string) map[string]string {
 		return !emoji
 	})
 	for _, emo := range emojis {
-		hash := crc32(emo)
-		*message = strings.ReplaceAll(*message, emo, hash)
-		rep[hash] = emo
+		if strings.HasPrefix(emo, ":") && strings.HasSuffix(emo, ":") {
+			hash := crc32(emo)
+			*message = strings.ReplaceAll(*message, emo, hash)
+			rep[hash] = emo
+		}
 	}
 
 	return rep
