@@ -13,7 +13,7 @@ import (
 	"github.com/tiqqe/go-logger"
 )
 
-var translator = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=sv&tl=en&dt=t&q="
+var translator = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q="
 
 func translate(message string) (trans string, e error) {
 	replacements := extract(&message)
@@ -62,21 +62,6 @@ func translate(message string) (trans string, e error) {
 func extract(message *string) map[string]string {
 	rep := make(map[string]string, 0)
 
-	emoji := false // :emoji:
-	emojis := strings.FieldsFunc(*message, func(r rune) bool {
-		switch r {
-		case ':':
-			emoji = !emoji
-			return false
-		}
-		return !emoji
-	})
-	for _, emo := range emojis {
-		hash := crc32(emo)
-		*message = strings.ReplaceAll(*message, emo, hash)
-		rep[hash] = emo
-	}
-
 	enc := false // <@Userxxx>
 	enclosed := strings.FieldsFunc(*message, func(r rune) bool {
 		switch r {
@@ -93,6 +78,21 @@ func extract(message *string) map[string]string {
 		hash := crc32(encl)
 		*message = strings.ReplaceAll(*message, encl, hash)
 		rep[hash] = encl
+	}
+
+	emoji := false // :emoji:
+	emojis := strings.FieldsFunc(*message, func(r rune) bool {
+		switch r {
+		case ':':
+			emoji = !emoji
+			return false
+		}
+		return !emoji
+	})
+	for _, emo := range emojis {
+		hash := crc32(emo)
+		*message = strings.ReplaceAll(*message, emo, hash)
+		rep[hash] = emo
 	}
 
 	return rep

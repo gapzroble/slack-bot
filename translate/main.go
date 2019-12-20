@@ -34,7 +34,13 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 
 		// check here to re-use global var
 		if result, ok := command(event.Body); ok {
-			logger.InfoString("Done command")
+			logger.Info(&logger.LogEntry{
+				Message: "Done Command",
+				Keys: map[string]interface{}{
+					"Body":   event.Body,
+					"Result": result,
+				},
+			})
 			res.Body = result
 			return
 		}
