@@ -37,6 +37,10 @@ func command(body string) (string, bool) {
 		return err.Error(), true
 	}
 
+	if strings.ToLower(message) == strings.ToLower(text) {
+		return text, true
+	}
+
 	return message, true
 }
 

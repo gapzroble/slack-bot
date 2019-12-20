@@ -20,7 +20,7 @@ func init() {
 
 func postMessageToSlack(message, channel, sender, user, ts string) error {
 	msg := map[string]interface{}{
-		"text":    message,
+		"text":    ">" + message, // quote it
 		"channel": channel,
 		"user":    user,
 	}

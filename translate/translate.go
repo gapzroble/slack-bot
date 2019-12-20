@@ -3,9 +3,11 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"hash/fnv"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/tiqqe/go-logger"
@@ -13,7 +15,10 @@ import (
 
 var translator = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=sv&tl=en&dt=t&q="
 
-func translate(message string) (string, error) {
+func translate(message string) (trans string, e error) {
+	replacements := extract(&message)
+	defer replace(&trans, replacements)
+
 	url := translator + url.QueryEscape(message)
 	response, err := http.Get(url)
 	if err != nil {
@@ -54,6 +59,57 @@ func translate(message string) (string, error) {
 	return body, nil
 }
 
+func extract(message *string) map[string]string {
+	rep := make(map[string]string, 0)
+
+	emoji := false // :emoji:
+	emojis := strings.FieldsFunc(*message, func(r rune) bool {
+		switch r {
+		case ':':
+			emoji = !emoji
+			return false
+		}
+		return !emoji
+	})
+	for _, emo := range emojis {
+		hash := crc32(emo)
+		*message = strings.ReplaceAll(*message, emo, hash)
+		rep[hash] = emo
+	}
+
+	enc := false // <@Userxxx>
+	enclosed := strings.FieldsFunc(*message, func(r rune) bool {
+		switch r {
+		case '<':
+			enc = true
+			return false
+		case '>':
+			enc = false
+			return false
+		}
+		return !enc
+	})
+	for _, encl := range enclosed {
+		hash := crc32(encl)
+		*message = strings.ReplaceAll(*message, encl, hash)
+		rep[hash] = encl
+	}
+
+	return rep
+}
+
+func replace(message *string, replacements map[string]string) {
+	for key, value := range replacements {
+		*message = strings.ReplaceAll(*message, key, value)
+	}
+}
+
+func crc32(s string) string {
+	h := fnv.New32a()
+	h.Write([]byte(s))
+	return "{" + strconv.FormatUint(uint64(h.Sum32()), 10) + "}"
+}
+
 func parse(response string) string {
 	var trans interface{}
 	if err := json.Unmarshal([]byte(response), &trans); err != nil {
@@ -83,5 +139,16 @@ func parse(response string) string {
 		}
 	}
 
-	return strings.ReplaceAll(translation, "<@ U", "<@U")
+	return transform(translation)
+}
+
+// 1. channel <# CCR0E62H0 | tech discussions> ==> <#CCR0E62H0|tech-discussions>
+// 2. emoji : Laughing: ==> :laughing:
+// 3. <@ User> => <@User>
+func transform(translation string) string {
+
+	translation = strings.ReplaceAll(translation, "<@ U", "<@U") // user
+	// translation = strings.ReplaceAll(translation, "<# C", "<#C") // channel
+
+	return translation
 }

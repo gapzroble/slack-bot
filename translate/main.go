@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -102,15 +103,16 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 		},
 	})
 
-	if body == req.Event.Text {
+	if strings.ToLower(body) == strings.ToLower(req.Event.Text) {
 		logger.InfoString("Message is same as translation")
 		return
 	}
 
 	logger.Info(&logger.LogEntry{
 		Message: "Sending translated message to slack",
-		Keys:    map[string]interface{}{
-			// "Message": body,
+		Keys: map[string]interface{}{
+			"Message":     req.Event.Text,
+			"Translation": body,
 		},
 	})
 

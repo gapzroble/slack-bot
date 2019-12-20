@@ -22,3 +22,35 @@ func TestCommand(t *testing.T) {
 		t.Error("Expecting command")
 	}
 }
+
+// TestTransform test
+func TestTransform(t *testing.T) {
+	tests := map[string]string{
+		" <@ User>": " <@User>",
+		// " : Laughing:":                       " :laughing:",
+		// " <# CCR0E62H0 | tech discussions> ": " <#CCR0E62H0|tech-discussions> ",
+		// " : heart:.":                         " :heart:.",
+	}
+	for test, expected := range tests {
+		actual := transform(test)
+		if actual != expected {
+			t.Errorf("Failed to transform: %s", test)
+		}
+	}
+}
+
+// TestExtractReplace test
+func TestExtractReplace(t *testing.T) {
+	message := " Lol, <@Userxxx> is  :laughing: at <#CCR0E62H0|tech-discussions> :heart:.."
+	expected := message
+
+	replacements := extract(&message)
+	if len(replacements) != 4 {
+		t.Error("Expecting 4 replacements")
+	}
+
+	replace(&message, replacements)
+	if message != expected {
+		t.Error("Not replaced")
+	}
+}
