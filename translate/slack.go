@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/tiqqe/go-logger"
 )
@@ -18,9 +19,13 @@ func init() {
 	slackToken = os.Getenv("SLACK_API_TOKEN")
 }
 
+func quote(s string) string {
+	return ">" + strings.ReplaceAll(s, "\n", "\n>")
+}
+
 func postMessageToSlack(message, channel, sender, user, ts string) error {
 	msg := map[string]interface{}{
-		"text":    ">" + message, // quote it
+		"text":    quote(message), // quote it
 		"channel": channel,
 		"user":    user,
 	}

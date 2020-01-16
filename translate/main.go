@@ -22,8 +22,8 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 
 	logger.Info(&logger.LogEntry{
 		Message: "Got event",
-		Keys:    map[string]interface{}{
-			// "Event": event,
+		Keys: map[string]interface{}{
+			"Event": event,
 		},
 	})
 
@@ -32,10 +32,29 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 
 	if err := json.Unmarshal([]byte(event.Body), &req); err != nil {
 
-		// check here to re-use global var
+		// ---------------------------------------
+		// Command
+		// ---------------------------------------
+		logger.InfoString("Checking command")
 		if result, ok := command(event.Body); ok {
 			logger.Info(&logger.LogEntry{
 				Message: "Done Command",
+				Keys: map[string]interface{}{
+					"Body":   event.Body,
+					"Result": result,
+				},
+			})
+			res.Body = result
+			return
+		}
+
+		// ---------------------------------------
+		// Action
+		// ---------------------------------------
+		logger.InfoString("Checking action")
+		if result, ok := action(event.Body); ok {
+			logger.Info(&logger.LogEntry{
+				Message: "Done Action",
 				Keys: map[string]interface{}{
 					"Body":   event.Body,
 					"Result": result,

@@ -88,11 +88,15 @@ func extract(message *string) map[string]string {
 		case ':':
 			emoji = !emoji
 			return false
+		case ' ', '\n':
+			if emoji {
+				emoji = false
+			}
 		}
 		return !emoji
 	})
 	for _, emo := range emojis {
-		if strings.HasPrefix(emo, ":") && strings.HasSuffix(emo, ":") {
+		if len(emo) > 1 && strings.HasPrefix(emo, ":") && strings.HasSuffix(emo, ":") {
 			hash := crc32(emo)
 			*message = strings.ReplaceAll(*message, emo, hash)
 			rep[hash] = emo
@@ -142,17 +146,6 @@ func parse(response string) string {
 			translation += str
 		}
 	}
-
-	return transform(translation)
-}
-
-// 1. channel <# CCR0E62H0 | tech discussions> ==> <#CCR0E62H0|tech-discussions>
-// 2. emoji : Laughing: ==> :laughing:
-// 3. <@ User> => <@User>
-func transform(translation string) string {
-
-	translation = strings.ReplaceAll(translation, "<@ U", "<@U") // user
-	// translation = strings.ReplaceAll(translation, "<# C", "<#C") // channel
 
 	return translation
 }
