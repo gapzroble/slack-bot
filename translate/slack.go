@@ -120,3 +120,33 @@ func getUserChannel(user string) (string, error) {
 
 	return chat.Channel.ID, nil
 }
+
+func showModal(dat []byte) error {
+	url := "https://slack.com/api/views.open"
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(dat))
+	req.Header.Set("Content-type", "application/json; charset=utf-8")
+	req.Header.Set("Authorization", "Bearer "+slackToken)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		logger.ErrorStringf("Error opening view, %s", err.Error())
+		return err
+	}
+
+	var chat im
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err := json.Unmarshal(body, &chat); err != nil {
+		logger.ErrorStringf("Error unmarshalling view response, %s", err.Error())
+		return err
+	}
+	logger.Info(&logger.LogEntry{
+		Message: "Got response from slack",
+		Keys: map[string]interface{}{
+			"Response": string(body),
+		},
+	})
+
+	return nil
+}

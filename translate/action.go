@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/url"
 
 	"github.com/tiqqe/go-logger"
@@ -21,6 +20,7 @@ type messageAction struct {
 		User string `json:"user"`
 		TS   string `json:"ts"`
 	} `json:"message"`
+	TriggerID string `json:"trigger_id"`
 }
 
 func newAction(s string) (*messageAction, error) {
@@ -57,21 +57,21 @@ func doAction(body string) (string, bool) {
 		},
 	})
 
-	threadChan := make(chan string)
-	go getMainThread(act.Message.TS, act.Channel.ID, threadChan)
-
 	trans, err := translate(act.Message.Text)
 	if err != nil {
 		logger.ErrorStringf("Error translation, %s", err.Error())
 		return "", false
 	}
 
-	threadTs := <-threadChan
-
-	msg := fmt.Sprintf("<@%s>: %s", act.Message.User, trans)
-	if err := postMessageToSlack(msg, act.Channel.ID, "bot", act.User.ID, threadTs); err != nil {
-		logger.ErrorStringf("Error posting translation to user, %s", err.Error())
+	mod := newModal(act.TriggerID, act.Message.Text, trans)
+	dat, err := json.Marshal(mod)
+	if err != nil {
+		logger.ErrorStringf("Error marshalling modal, %s", err.Error())
 		return trans, true
+	}
+
+	if err := showModal(dat); err != nil {
+		logger.ErrorStringf("Error showing modal, %s", err.Error())
 	}
 
 	return trans, true

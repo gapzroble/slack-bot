@@ -52,15 +52,15 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 		// Action
 		// ---------------------------------------
 		logger.InfoString("Checking action")
-		if result, ok := doAction(event.Body); ok {
+		if _, ok := doAction(event.Body); ok {
 			logger.Info(&logger.LogEntry{
 				Message: "Done Action",
-				Keys: map[string]interface{}{
-					"Body":   event.Body,
-					"Result": result,
-				},
+				// Keys: map[string]interface{}{
+				// 	"Body":   event.Body,
+				// 	"Result": result,
+				// },
 			})
-			res.Body = result
+			// res.Body = result
 			return
 		}
 

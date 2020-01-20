@@ -2,6 +2,8 @@ package main
 
 import "encoding/json"
 
+import "strings"
+
 type reaction struct {
 	Name  string
 	Count int
@@ -73,3 +75,50 @@ type permalink struct {
 	Channel   string `json:"channel"`
 	Permalink string `json:"permalink"`
 }
+
+type modal struct {
+	Token     string `json:"token"`
+	TriggerID string `json:"trigger_id"`
+	View      string `json:"view"`
+}
+
+func newModal(triggerID, message, translation string) modal {
+	view := strings.ReplaceAll(modalView, "--message--", message)
+	view = strings.ReplaceAll(view, "--translation--", translation)
+	return modal{
+		TriggerID: triggerID,
+		View:      view,
+	}
+}
+
+var modalView = `
+{
+    "type": "modal",
+    "title": {
+        "type": "plain_text",
+        "text": "Translate Bot",
+        "emoji": true
+    },
+    "blocks": [
+        {
+            "type": "section",
+            "text": {
+                "type": "plain_text",
+                "text": "--message--",
+                "emoji": true
+            }
+        },
+        {
+            "type": "divider"
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "plain_text",
+                "text": "--translation--",
+                "emoji": true
+            }
+        }
+    ]
+}
+`
