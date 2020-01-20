@@ -91,3 +91,32 @@ func getPermalink(ts, channel string) (*permalink, error) {
 
 	return &perm, nil
 }
+
+func getUserChannel(user string) (string, error) {
+	msg := map[string]interface{}{
+		"token": slackToken,
+		"users": user,
+	}
+	r, _ := json.Marshal(msg)
+	url := "https://slack.com/api/conversations.open"
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(r))
+	req.Header.Set("Content-type", "application/json; charset=utf-8")
+	req.Header.Set("Authorization", "Bearer "+slackToken)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		logger.ErrorStringf("Error getting user channel, %s", err.Error())
+		return "", err
+	}
+
+	var chat im
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err := json.Unmarshal(body, &chat); err != nil {
+		logger.ErrorStringf("Error unmarshalling user channel response, %s", err.Error())
+		return "", err
+	}
+
+	return chat.Channel.ID, nil
+}

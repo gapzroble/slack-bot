@@ -8,7 +8,7 @@ import (
 func TestCommand(t *testing.T) {
 	input := "token=5eCkEuoxbbR2rY2FaaMjtWBN&team_id=TA18P4GSZ&team_domain=tiqqe&channel_id=DHS7SGTDX&channel_name=directmessage&user_id=UHS7SGL0Z&user_name=r.roble&command=%2Ftranslatebot&text=yes&response_url=https%3A%2F%2Fhooks.slack.com%2Fcommands%2FTA18P4GSZ%2F878512279365%2FerSNLBPKgPxV45gYHKNUPPkg&trigger_id=867034496323.341295152917.ef307a9be122ee80a0dac76e9065a489"
 
-	if _, ok := command(input); !ok {
+	if _, ok := doCommand(input); !ok {
 		t.Error("Expecting command")
 	}
 }

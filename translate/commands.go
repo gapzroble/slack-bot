@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func command(body string) (string, bool) {
+func doCommand(body string) (string, bool) {
 	u, err := url.Parse("/?" + body)
 	if err != nil {
 		return "", false

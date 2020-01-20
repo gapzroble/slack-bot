@@ -36,7 +36,7 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 		// Command
 		// ---------------------------------------
 		logger.InfoString("Checking command")
-		if result, ok := command(event.Body); ok {
+		if result, ok := doCommand(event.Body); ok {
 			logger.Info(&logger.LogEntry{
 				Message: "Done Command",
 				Keys: map[string]interface{}{
@@ -52,7 +52,7 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 		// Action
 		// ---------------------------------------
 		logger.InfoString("Checking action")
-		if result, ok := action(event.Body); ok {
+		if result, ok := doAction(event.Body); ok {
 			logger.Info(&logger.LogEntry{
 				Message: "Done Action",
 				Keys: map[string]interface{}{
