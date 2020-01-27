@@ -6,11 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"strings"
-
-	"github.com/tiqqe/go-logger"
 )
 
 var slackToken string
@@ -53,12 +52,7 @@ func postMessageToSlack(message, channel, sender, user, ts string) error {
 	}
 
 	defer resp.Body.Close()
-	logger.Info(&logger.LogEntry{
-		Message: "Got response from slack",
-		Keys: map[string]interface{}{
-			"Response": string(body),
-		},
-	})
+	log.Printf("Got response from slack: %s", body)
 
 	res, err := newResponse(body)
 	if err != nil {
@@ -106,7 +100,7 @@ func getUserChannel(user string) (string, error) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		logger.ErrorStringf("Error getting user channel, %s", err.Error())
+		log.Printf("Error getting user channel: %s", err.Error())
 		return "", err
 	}
 
@@ -114,7 +108,7 @@ func getUserChannel(user string) (string, error) {
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err := json.Unmarshal(body, &chat); err != nil {
-		logger.ErrorStringf("Error unmarshalling user channel response, %s", err.Error())
+		log.Printf("Error unmarshalling user channel response: %s", err.Error())
 		return "", err
 	}
 
@@ -130,7 +124,7 @@ func showModal(dat []byte) error {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		logger.ErrorStringf("Error opening view, %s", err.Error())
+		log.Printf("Error opening view: %s", err.Error())
 		return err
 	}
 
@@ -138,15 +132,10 @@ func showModal(dat []byte) error {
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err := json.Unmarshal(body, &chat); err != nil {
-		logger.ErrorStringf("Error unmarshalling view response, %s", err.Error())
+		log.Printf("Error unmarshalling view response: %s", err.Error())
 		return err
 	}
-	logger.Info(&logger.LogEntry{
-		Message: "Got response from slack",
-		Keys: map[string]interface{}{
-			"Response": string(body),
-		},
-	})
+	log.Printf("Got response from slack: %s", body)
 
 	return nil
 }

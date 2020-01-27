@@ -2,9 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"net/url"
-
-	"github.com/tiqqe/go-logger"
 )
 
 type messageAction struct {
@@ -35,43 +34,38 @@ func newAction(s string) (*messageAction, error) {
 func doAction(body string) (string, bool) {
 	u, err := url.Parse("/?" + body)
 	if err != nil {
-		logger.ErrorStringf("Error parsing body, %s", err.Error())
+		log.Printf("Error parsing body: %s", err.Error())
 		return "", false
 	}
 
 	payload := u.Query().Get("payload")
 	if payload == "" {
-		logger.ErrorString("Payload is empty")
+		log.Print("Payload is empty")
 		return "", false
 	}
 
 	act, err := newAction(payload)
 	if err != nil {
-		logger.ErrorStringf("Error new action, %s", err.Error())
+		log.Printf("Error new action: %s", err.Error())
 		return "", false
 	}
-	logger.Info(&logger.LogEntry{
-		Message: "Got action",
-		Keys: map[string]interface{}{
-			"Action": act,
-		},
-	})
+	log.Printf("Got action: %#v", act)
 
 	trans, err := translate(act.Message.Text)
 	if err != nil {
-		logger.ErrorStringf("Error translation, %s", err.Error())
+		log.Printf("Error translation: %s", err.Error())
 		return "", false
 	}
 
 	mod := newModal(act.TriggerID, act.Message.Text, trans)
 	dat, err := json.Marshal(mod)
 	if err != nil {
-		logger.ErrorStringf("Error marshalling modal, %s", err.Error())
+		log.Printf("Error marshalling modal: %s", err.Error())
 		return trans, true
 	}
 
 	if err := showModal(dat); err != nil {
-		logger.ErrorStringf("Error showing modal, %s", err.Error())
+		log.Printf("Error showing modal: %s", err.Error())
 	}
 
 	return trans, true

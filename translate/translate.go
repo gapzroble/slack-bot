@@ -5,12 +5,11 @@ import (
 	"errors"
 	"hash/fnv"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
-
-	"github.com/tiqqe/go-logger"
 )
 
 var translator = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&hl=sv&tl=en&dt=t&q="
@@ -22,32 +21,18 @@ func translate(message string) (trans string, e error) {
 	url := translator + url.QueryEscape(message)
 	response, err := http.Get(url)
 	if err != nil {
-		logger.Error(&logger.LogEntry{
-			Message:      "Failed to translate message from api",
-			ErrorMessage: err.Error(),
-			Keys: map[string]interface{}{
-				"Url": url,
-			},
-		})
+		log.Printf("Failed to translate message from api: %s, Url: %s", err.Error(), url)
 		return "", err
 	}
 
 	if response.StatusCode > 299 {
-		logger.Error(&logger.LogEntry{
-			Message: "Expecting response status 2XX",
-			Keys: map[string]interface{}{
-				"Response": response,
-			},
-		})
+		log.Printf("Expecting response status 2XX: got %d", response.StatusCode)
 		return "", errors.New("Translate response not OK")
 	}
 
 	dat, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		logger.Error(&logger.LogEntry{
-			Message:      "Fail to read response body",
-			ErrorMessage: err.Error(),
-		})
+		log.Printf("Failed to read response body: %s", err.Error())
 		return "", err
 	}
 

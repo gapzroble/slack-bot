@@ -3,29 +3,19 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"os"
+	"fmt"
+	"log"
 	"strings"
 	"sync"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/aws/aws-lambda-go/lambdacontext"
-
-	"github.com/tiqqe/go-logger"
 )
 
 func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *events.APIGatewayProxyResponse, e error) {
-	lctx, _ := lambdacontext.FromContext(ctx)
-	logger.Init(lctx.AwsRequestID, os.Getenv("AWS_LAMBDA_FUNCTION_NAME"))
-
 	defer handlePanic()
 
-	logger.Info(&logger.LogEntry{
-		Message: "Got event",
-		Keys: map[string]interface{}{
-			"Event": event,
-		},
-	})
+	log.Printf("Got event: %#v", event)
 
 	req := request{}
 	res = &events.APIGatewayProxyResponse{StatusCode: 200}
@@ -35,15 +25,9 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 		// ---------------------------------------
 		// Command
 		// ---------------------------------------
-		logger.InfoString("Checking command")
+		log.Print("Checking command")
 		if result, ok := doCommand(event.Body); ok {
-			logger.Info(&logger.LogEntry{
-				Message: "Done Command",
-				Keys: map[string]interface{}{
-					"Body":   event.Body,
-					"Result": result,
-				},
-			})
+			log.Printf("Done command. Body: %s, Result: %s", event.Body, result)
 			res.Body = result
 			return
 		}
@@ -51,50 +35,31 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 		// ---------------------------------------
 		// Action
 		// ---------------------------------------
-		logger.InfoString("Checking action")
+		log.Print("Checking action")
 		if _, ok := doAction(event.Body); ok {
-			logger.Info(&logger.LogEntry{
-				Message: "Done Action",
-				// Keys: map[string]interface{}{
-				// 	"Body":   event.Body,
-				// 	"Result": result,
-				// },
-			})
+			log.Print("Done action.")
 			// res.Body = result
 			return
 		}
 
-		logger.Error(&logger.LogEntry{
-			Message:      "Failed to unmarshall request body",
-			ErrorMessage: err.Error(),
-			Keys:         map[string]interface{}{
-				// "Event": event,
-			},
-		})
+		log.Printf("Failed to unmarshall request body: %s", err.Error())
 
 		res.Body = err.Error()
 		return
 	}
 
-	logger.Info(&logger.LogEntry{
-		Message: "Got request",
-		Keys: map[string]interface{}{
-			"ts":        req.Event.TS,
-			"event_ts":  req.Event.EventTS,
-			"delete_ts": req.Event.DeleteTS,
-		},
-	})
+	log.Printf("Got request. ts: %s, event_ts: %s, delete_ts: %s", req.Event.TS, req.Event.EventTS, req.Event.DeleteTS)
 
 	if req.IsVerification() {
 		res.Body = req.Challenge
 		res.Headers = map[string]string{"Content-type": "text/plain"}
-		logger.InfoString("Responding to challenge")
+		log.Print("Responding to challenge")
 		return
 	}
 
 	if req.Event.Text == "" {
 		res.Body = "Message is empty"
-		logger.InfoString(res.Body)
+		log.Print(res.Body)
 		return
 	}
 
@@ -106,14 +71,14 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 	}
 	if len(users) == 0 {
 		res.Body = "No users to send to"
-		logger.InfoString(res.Body)
+		log.Print(res.Body)
 		return
 	}
 
 	threadChan := make(chan string)
 	go getMainThread(req.Event.TS, req.Event.Channel, threadChan)
 
-	go logger.InfoString("Translating message")
+	log.Print("Translating message")
 
 	body, err := translate(req.Event.Text)
 	if err != nil {
@@ -121,25 +86,14 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 		return
 	}
 
-	logger.Info(&logger.LogEntry{
-		Message: "Got translation",
-		Keys:    map[string]interface{}{
-			// "Body": body,
-		},
-	})
+	log.Print("Got translation")
 
 	if strings.ToLower(body) == strings.ToLower(req.Event.Text) {
-		logger.InfoString("Message is same as translation")
+		log.Print("Message is same as translation")
 		return
 	}
 
-	logger.Info(&logger.LogEntry{
-		Message: "Sending translated message to slack",
-		Keys: map[string]interface{}{
-			"Message":     req.Event.Text,
-			"Translation": body,
-		},
-	})
+	log.Printf("Sending translated message to slack. Message: %s, Translation: %s", req.Event.Text, body)
 
 	threadTs := <-threadChan
 
@@ -150,14 +104,7 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 			defer wg.Done()
 			err = postMessageToSlack(body, req.Event.Channel, req.Event.User, user, threadTs)
 			if err != nil {
-				logger.Error(&logger.LogEntry{
-					Message:      "Failed to post slack message",
-					ErrorMessage: err.Error(),
-					Keys: map[string]interface{}{
-						"User":    user,
-						"Channel": req.Event.Channel,
-					},
-				})
+				log.Printf("Failed to post slack message: %s, User: %s, Channel: %s", err.Error(), user, req.Event.Channel)
 				if err.Error() == "user_not_in_channel" {
 					notInChannel[user+":"+req.Event.Channel] = true
 				}
@@ -166,7 +113,7 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 	}
 	wg.Wait()
 
-	logger.InfoString("Done")
+	log.Print("Done")
 
 	return res, nil
 }
@@ -178,21 +125,17 @@ func main() {
 func handlePanic() {
 	msg := recover()
 	if msg != nil {
-		entry := &logger.LogEntry{
-			Message:   "Go panic",
-			ErrorCode: "GoPanic",
-		}
+		var err string
 		switch msg := msg.(type) {
 		case string:
-			entry.ErrorMessage = msg
+			err = msg
 		case error:
-			entry.ErrorMessage = msg.Error()
+			err = msg.Error()
 
 		default:
-			entry.ErrorCode = "Unknown error type"
-			entry.SetKey("error", msg)
+			err = fmt.Sprintf("Unknown error type: %#v", msg)
 		}
 
-		logger.Error(entry)
+		log.Printf("Go panic: %s", err)
 	}
 }
