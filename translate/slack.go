@@ -18,13 +18,14 @@ func init() {
 	slackToken = os.Getenv("SLACK_API_TOKEN")
 }
 
-func quote(s string) string {
-	return ">" + strings.ReplaceAll(s, "\n", "\n>")
+func quote(message, sender string) string {
+	quoted := "<@" + sender + ">:\n> " + strings.ReplaceAll(message, "\n", "\n>")
+	return strings.ReplaceAll(quoted, "> > ", "> ")
 }
 
 func postMessageToSlack(message, channel, sender, user, ts string) error {
 	msg := map[string]interface{}{
-		"text":    quote(message), // quote it
+		"text":    quote(message, sender), // quote it
 		"channel": channel,
 		"user":    user,
 	}
