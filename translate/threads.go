@@ -2,28 +2,25 @@ package main
 
 import "net/url"
 
-func getMainThread(ts, channel string, tsChan chan<- string) {
-	threadTs := ""
-	defer func() {
-		tsChan <- threadTs
-	}()
-
+func getMainThread(ts, channel string) string {
 	perm, err := getPermalink(ts, channel)
 	if err != nil {
-		return
+		return ""
 	}
 
 	if !perm.OK {
-		return
+		return ""
 	}
 
 	u, err := url.Parse(perm.Permalink)
 	if err != nil {
-		return
+		return ""
 	}
 
 	tsparam := u.Query().Get("thread_ts")
 	if tsparam == "" || tsparam != ts {
-		threadTs = tsparam
+		return tsparam
 	}
+
+	return ""
 }

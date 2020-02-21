@@ -23,12 +23,20 @@ func quote(message, sender string) string {
 	return strings.ReplaceAll(quoted, "> > ", "> ")
 }
 
-func postMessageToSlack(message, channel, sender, user, ts string) error {
+func postMessageToSlack(message, channel, sender, user string, tsChan, senderPicChan <-chan string) error {
 	msg := map[string]interface{}{
-		"text":    quote(message, sender), // quote it
+		"text":    message,
 		"channel": channel,
 		"user":    user,
 	}
+	senderPic := <-senderPicChan
+	if senderPic != "" {
+		msg["as_user"] = false
+		msg["icon_url"] = senderPic
+	}
+	log.Printf("Message: %#v", msg)
+
+	ts := <-tsChan
 	if ts != "" {
 		msg["thread_ts"] = ts
 	}

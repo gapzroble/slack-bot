@@ -75,8 +75,21 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 		return
 	}
 
-	threadChan := make(chan string)
-	go getMainThread(req.Event.TS, req.Event.Channel, threadChan)
+	threadTsChan := make(chan string, len(users))
+	go func() {
+		threadTs := getMainThread(req.Event.TS, req.Event.Channel)
+		for range users {
+			threadTsChan <- threadTs
+		}
+	}()
+
+	senderPicChan := make(chan string, len(users))
+	go func() {
+		senderPic := getSenderPic(req.Event.User)
+		for range users {
+			senderPicChan <- senderPic
+		}
+	}()
 
 	log.Print("Translating message")
 
@@ -95,14 +108,12 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 
 	log.Printf("Sending translated message to slack. Message: %s, Translation: %s", req.Event.Text, body)
 
-	threadTs := <-threadChan
-
 	var wg sync.WaitGroup
 	for _, user := range users {
 		wg.Add(1)
 		go func(user string) {
 			defer wg.Done()
-			err = postMessageToSlack(body, req.Event.Channel, req.Event.User, user, threadTs)
+			err = postMessageToSlack(body, req.Event.Channel, req.Event.User, user, threadTsChan, senderPicChan)
 			if err != nil {
 				log.Printf("Failed to post slack message: %s, User: %s, Channel: %s", err.Error(), user, req.Event.Channel)
 				if err.Error() == "user_not_in_channel" {
