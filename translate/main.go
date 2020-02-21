@@ -10,6 +10,9 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+
+	"github.com/rroble/slack-bot/lib/google"
+	"github.com/rroble/slack-bot/lib/slack"
 )
 
 func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *events.APIGatewayProxyResponse, e error) {
@@ -17,7 +20,7 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 
 	log.Printf("Got event: %#v", event)
 
-	req := request{}
+	req := slack.Request{}
 	res = &events.APIGatewayProxyResponse{StatusCode: 200}
 
 	if err := json.Unmarshal([]byte(event.Body), &req); err != nil {
@@ -77,7 +80,7 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 
 	threadTsChan := make(chan string, len(users))
 	go func() {
-		threadTs := getMainThread(req.Event.TS, req.Event.Channel)
+		threadTs := slack.GetMainThread(req.Event.TS, req.Event.Channel)
 		for range users {
 			threadTsChan <- threadTs
 		}
@@ -85,7 +88,7 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 
 	senderPicChan := make(chan string, len(users))
 	go func() {
-		senderPic := getSenderPic(req.Event.User)
+		senderPic := slack.GetSenderPic(req.Event.User)
 		for range users {
 			senderPicChan <- senderPic
 		}
@@ -93,7 +96,7 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 
 	log.Print("Translating message")
 
-	body, err := translate(req.Event.Text)
+	body, err := google.Translate(req.Event.Text)
 	if err != nil {
 		res.Body = err.Error()
 		return
@@ -113,7 +116,7 @@ func handler(ctx context.Context, event events.APIGatewayProxyRequest) (res *eve
 		wg.Add(1)
 		go func(user string) {
 			defer wg.Done()
-			err = postMessageToSlack(body, req.Event.Channel, req.Event.User, user, threadTsChan, senderPicChan)
+			err = slack.PostMessage(body, req.Event.Channel, req.Event.User, user, threadTsChan, senderPicChan)
 			if err != nil {
 				log.Printf("Failed to post slack message: %s, User: %s, Channel: %s", err.Error(), user, req.Event.Channel)
 				if err.Error() == "user_not_in_channel" {

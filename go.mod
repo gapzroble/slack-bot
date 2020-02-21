@@ -1,4 +1,4 @@
-module github.com/rroble/slack-translate-bot
+module github.com/rroble/slack-bot
 
 go 1.13
 

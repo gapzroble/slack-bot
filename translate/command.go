@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	"github.com/rroble/slack-bot/lib/google"
 )
 
 func doCommand(body string) (string, bool) {
@@ -32,7 +34,7 @@ func doCommand(body string) (string, bool) {
 		return fmt.Sprintf("```slackUsers: %+v\nnotInChannel: %+v```", slackUsers, notInChannel), true
 	}
 
-	message, err := translate(text)
+	message, err := google.Translate(text)
 	if err != nil {
 		return err.Error(), true
 	}

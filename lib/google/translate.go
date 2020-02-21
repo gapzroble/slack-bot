@@ -1,4 +1,4 @@
-package main
+package google
 
 import (
 	"encoding/json"
@@ -14,7 +14,8 @@ import (
 
 var translator = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&hl=sv&tl=en&dt=t&q="
 
-func translate(message string) (trans string, e error) {
+// Translate func
+func Translate(message string) (trans string, e error) {
 	replacements := extract(&message)
 	defer replace(&trans, replacements)
 

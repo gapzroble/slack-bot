@@ -1,29 +1,32 @@
-package main
+package slack
 
 import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 )
 
-var slackToken string
+var (
+	slackToken          string
+	postMessageURL      = "https://slack.com/api/chat.postEphemeral"
+	getPermalinkURL     = "https://slack.com/api/chat.getPermalink?token={token}&channel={channel}&message_ts={message_ts}"
+	conversationOpenURL = "https://slack.com/api/conversations.open"
+	viewOpenURL         = "https://slack.com/api/views.open"
+	userInfoURL         = "https://slack.com/api/users.info?token={token}&user={user}"
+)
 
 func init() {
 	slackToken = os.Getenv("SLACK_API_TOKEN")
 }
 
-func quote(message, sender string) string {
-	quoted := "<@" + sender + ">:\n> " + strings.ReplaceAll(message, "\n", "\n>")
-	return strings.ReplaceAll(quoted, "> > ", "> ")
-}
-
-func postMessageToSlack(message, channel, sender, user string, tsChan, senderPicChan <-chan string) error {
+// PostMessage func
+func PostMessage(message, channel, sender, user string, tsChan, senderPicChan <-chan string) error {
 	msg := map[string]interface{}{
 		"text":    message,
 		"channel": channel,
@@ -34,18 +37,18 @@ func postMessageToSlack(message, channel, sender, user string, tsChan, senderPic
 		msg["as_user"] = false
 		msg["icon_url"] = senderPic
 	}
-	log.Printf("Message: %#v", msg)
 
 	ts := <-tsChan
 	if ts != "" {
 		msg["thread_ts"] = ts
 	}
+
 	r, err := json.Marshal(msg)
 	if err != nil {
 		return err
 	}
-	url := "https://slack.com/api/chat.postEphemeral"
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(r))
+
+	req, err := http.NewRequest("POST", postMessageURL, bytes.NewBuffer(r))
 	req.Header.Set("Content-type", "application/json; charset=utf-8")
 	req.Header.Set("Authorization", "Bearer "+slackToken)
 
@@ -61,12 +64,12 @@ func postMessageToSlack(message, channel, sender, user string, tsChan, senderPic
 	}
 
 	defer resp.Body.Close()
-	log.Printf("Got response from slack: %s", body)
 
-	res, err := newResponse(body)
+	res, err := NewResponse(body)
 	if err != nil {
 		return err
 	}
+
 	if res.Error == "user_not_in_channel" {
 		return errors.New("user_not_in_channel")
 	}
@@ -74,14 +77,15 @@ func postMessageToSlack(message, channel, sender, user string, tsChan, senderPic
 	return nil
 }
 
-func getPermalink(ts, channel string) (*permalink, error) {
-	url := fmt.Sprintf("https://slack.com/api/chat.getPermalink?token=%s&channel=%s&message_ts=%s", slackToken, channel, ts)
-	resp, err := http.Get(url)
+// GetPermalink func
+func GetPermalink(ts, channel string) (*Permalink, error) {
+	r := strings.NewReplacer("{token}", slackToken, "{channel}", channel, "{message_ts}", ts)
+	resp, err := http.Get(r.Replace(getPermalinkURL))
 	if err != nil {
 		return nil, err
 	}
 
-	var perm permalink
+	var perm Permalink
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -95,14 +99,14 @@ func getPermalink(ts, channel string) (*permalink, error) {
 	return &perm, nil
 }
 
-func getUserChannel(user string) (string, error) {
+// GetUserChannel func
+func GetUserChannel(user string) (string, error) {
 	msg := map[string]interface{}{
 		"token": slackToken,
 		"users": user,
 	}
 	r, _ := json.Marshal(msg)
-	url := "https://slack.com/api/conversations.open"
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(r))
+	req, err := http.NewRequest("POST", conversationOpenURL, bytes.NewBuffer(r))
 	req.Header.Set("Content-type", "application/json; charset=utf-8")
 	req.Header.Set("Authorization", "Bearer "+slackToken)
 
@@ -113,7 +117,7 @@ func getUserChannel(user string) (string, error) {
 		return "", err
 	}
 
-	var chat im
+	var chat IM
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err := json.Unmarshal(body, &chat); err != nil {
@@ -124,9 +128,9 @@ func getUserChannel(user string) (string, error) {
 	return chat.Channel.ID, nil
 }
 
-func showModal(dat []byte) error {
-	url := "https://slack.com/api/views.open"
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(dat))
+// ShowModal func
+func ShowModal(dat []byte) error {
+	req, err := http.NewRequest("POST", viewOpenURL, bytes.NewBuffer(dat))
 	req.Header.Set("Content-type", "application/json; charset=utf-8")
 	req.Header.Set("Authorization", "Bearer "+slackToken)
 
@@ -137,7 +141,7 @@ func showModal(dat []byte) error {
 		return err
 	}
 
-	var chat im
+	var chat IM
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err := json.Unmarshal(body, &chat); err != nil {
@@ -147,4 +151,58 @@ func showModal(dat []byte) error {
 	log.Printf("Got response from slack: %s", body)
 
 	return nil
+}
+
+// GetMainThread func
+func GetMainThread(ts, channel string) string {
+	perm, err := GetPermalink(ts, channel)
+	if err != nil {
+		return ""
+	}
+
+	if !perm.OK {
+		return ""
+	}
+
+	u, err := url.Parse(perm.Permalink)
+	if err != nil {
+		return ""
+	}
+
+	tsparam := u.Query().Get("thread_ts")
+	if tsparam == "" || tsparam != ts {
+		return tsparam
+	}
+
+	return ""
+}
+
+// GetSenderPic func
+func GetSenderPic(sender string) string {
+	r := strings.NewReplacer("{token}", slackToken, "{user}", sender)
+	resp, err := http.Get(r.Replace(userInfoURL))
+	if err != nil {
+		log.Printf("Error getting user.info, %s", err.Error())
+		return ""
+	}
+
+	var info UserInfo
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("Error reading body, %s", err.Error())
+		return ""
+	}
+
+	if err := json.Unmarshal(body, &info); err != nil {
+		log.Printf("Error unmarshalling body, %s", err.Error())
+		return ""
+	}
+
+	if !info.OK {
+		log.Printf("Info not OK, %#v", info)
+		return ""
+	}
+
+	return info.User.Profile.Image48
 }

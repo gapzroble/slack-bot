@@ -1,16 +1,19 @@
-package main
+package slack
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strings"
+)
 
-import "strings"
-
-type reaction struct {
+// Reaction struct
+type Reaction struct {
 	Name  string
 	Count int
 	Users []string
 }
 
-type event struct {
+// Event struct
+type Event struct {
 	ClientMsgID string `json:"client_msg_id"`
 	Type        string
 	SubtType    string `json:"subtype,omitempty"`
@@ -25,14 +28,15 @@ type event struct {
 	DeleteTS    string     `json:"deleted_ts,omitempty"`
 	IsStarred   bool       `json:"is_starred,omitempty"`
 	PinnedTo    []string   `json:"pinned_to,omitempty"`
-	Reactions   []reaction `json:",omitempty"`
+	Reactions   []Reaction `json:",omitempty"`
 }
 
-type request struct {
+// Request struct
+type Request struct {
 	Token       string
 	TeamID      string `json:"team_id"`
 	APIAppID    string `json:"api_app_id"`
-	Event       event
+	Event       Event
 	Type        string
 	EventID     string   `json:"event_id"`
 	EventTime   float64  `json:"event_time"`
@@ -40,29 +44,36 @@ type request struct {
 	Challenge   string   `json:",omitempty"`
 }
 
-func (r request) IsVerification() bool {
+// IsVerification func
+func (r Request) IsVerification() bool {
 	return r.Type == "url_verification" && r.Challenge != ""
 }
 
-func (r request) String() string {
+// String func
+func (r Request) String() string {
 	s, _ := json.MarshalIndent(r, "", "\t")
 	return string(s)
 }
 
-type channel struct {
+// Channel struct
+type Channel struct {
 	ID string `json:"id"`
 }
-type im struct {
-	Channel channel `json:"channel"`
+
+// IM struct
+type IM struct {
+	Channel Channel `json:"channel"`
 }
 
-type response struct {
+// Response struct
+type Response struct {
 	OK    bool   `json:"ok"`
 	Error string `json:"error"`
 }
 
-func newResponse(data []byte) (*response, error) {
-	var res response
+// NewResponse from byte array
+func NewResponse(data []byte) (*Response, error) {
+	var res Response
 	if err := json.Unmarshal(data, &res); err != nil {
 		return nil, err
 	}
@@ -70,25 +81,37 @@ func newResponse(data []byte) (*response, error) {
 	return &res, nil
 }
 
-type permalink struct {
+// Permalink struct
+type Permalink struct {
 	OK        bool   `json:"ok"`
 	Channel   string `json:"channel"`
 	Permalink string `json:"permalink"`
 }
 
-type modal struct {
+// Modal struct
+type Modal struct {
 	Token     string `json:"token"`
 	TriggerID string `json:"trigger_id"`
 	View      string `json:"view"`
 }
 
-func newModal(triggerID, message, translation string) modal {
-	view := strings.ReplaceAll(modalView, "--message--", message)
-	view = strings.ReplaceAll(view, "--translation--", translation)
-	return modal{
+// NewModal func
+func NewModal(triggerID, message, translation string) Modal {
+	r := strings.NewReplacer("{message}", message, "{translation}", translation)
+	return Modal{
 		TriggerID: triggerID,
-		View:      view,
+		View:      r.Replace(modalView),
 	}
+}
+
+// UserInfo struct
+type UserInfo struct {
+	OK   bool `json:"ok"`
+	User struct {
+		Profile struct {
+			Image48 string `json:"image_48"`
+		} `json:"profile"`
+	} `json:"user"`
 }
 
 var modalView = `
@@ -104,7 +127,7 @@ var modalView = `
             "type": "section",
             "text": {
                 "type": "plain_text",
-                "text": "--message--",
+                "text": "{message}",
                 "emoji": true
             }
         },
@@ -115,7 +138,7 @@ var modalView = `
             "type": "section",
             "text": {
                 "type": "plain_text",
-                "text": "--translation--",
+                "text": "{translation}",
                 "emoji": true
             }
         }
