@@ -126,9 +126,8 @@ var modalView = `
         {
             "type": "section",
             "text": {
-                "type": "plain_text",
-                "text": "{message}",
-                "emoji": true
+                "type": "mrkdwn",
+                "text": "{message}"
             }
         },
         {
@@ -137,9 +136,8 @@ var modalView = `
         {
             "type": "section",
             "text": {
-                "type": "plain_text",
-                "text": "{translation}",
-                "emoji": true
+                "type": "mrkdwn",
+                "text": "{translation}"
             }
         }
     ]
